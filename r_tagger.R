@@ -2,25 +2,19 @@ library(markovchain)
 getwd()
 setwd("C:/Users/apradha7/Downloads/NLP/hmm_tagger")
 
-#Reading the training set
-conn = file("entrain.txt",open="r")
-res<-readLines(conn)
-data<-data.frame(Word=factor(),POS=factor())
-
-for(i in 1:length(res)){
-  row<-strsplit(res[i],"/")
-  data<-rbind(data,data.frame(Word=row[[1]][1],POS=row[[1]][2]))
-  print(res[i])
-}
+test_data<-read.table("entest.txt",header=FALSE,sep="/",fill =FALSE,quote="",comment.char = "",allowEscapes=TRUE,stringsAsFactors=TRUE)
+colnames(test_data)<-c("Word","POS")
+data<-read.table("entrain.txt",header=FALSE,sep="/",fill =TRUE,quote="",allowEscapes=TRUE,comment.char = "",stringsAsFactors=TRUE)
+colnames(data)<-c("Word","POS")
 
 #Creating transition Matrix
-p <- matrix(nrow=length(unique(data$POS)),ncol=length(unique(data$POS)),0)
-for(t in 1:(length(data$POS)-1)){
-  p[data$POS[t],data$POS[t+1]]<- p[data$POS[t],data$POS[t+1]]+1
-}
-for (i in 1:4) p[i, ] <- p[i, ] / sum(p[i, ])
+# p <- matrix(nrow=length(unique(data$POS)),ncol=length(unique(data$POS)),0)
+# for(t in 1:(length(data$POS)-1)){
+#   p[data$POS[t],data$POS[t+1]]<- p[data$POS[t],data$POS[t+1]]+1
+# }
+# for (i in 1:length(unique(data$POS))) p[i, ] <- p[i, ] / sum(p[i, ])
 
-mc <- markovchainFit(data=data$POS,method = "laplace", laplacian = 0.01)
+mc <- markovchainFit(data=data$POS,method="laplace",laplacian = 2)
 tm<-mc$estimate@transitionMatrix
 
 #Creating Observation Matrix
@@ -30,6 +24,7 @@ for (i in 1:nrow(o)) o[i,]<-((o[i,]+1)/(sum(o[i,])+length(data$POS)))
 om<-data.matrix(o)
 
 #Impelementing Viterbi Algo
+#Ref http://a-little-book-of-r-for-bioinformatics.readthedocs.org/en/latest/src/chapter10.html
 observations <- colnames(om)
 
 viterbi<-function(seq,tm,om){
@@ -75,26 +70,14 @@ makeViterbi<-function(seq,tm,om){
 #       print(seq[i])
       # print(om[row_names[l],seq[i]])
       stateprob <- tryCatch({om[row_names[l],seq[i]]},error =function(e){stateprob=1})
+      # max(v[(i-1),] * transitionmatrix[l,]) is the maximum probability for the POS observed
+      # at the previous position in the sequence in state k, followed by a transition from previous
+      # state k to current state l at the current POS position.
       v[i,l]<-stateprob * max(v[(i-1),]*tm[,l])
     }
   }
   return(v)
 }  
-
-#Reading Test data
-conn1 = file("entest.txt",open="r")
-res1<-readLines(conn1)
-test_data<-data.frame(Word=factor(),POS=factor())
-
-for(i in 1:length(res)){
-  if(i!=1 & res1[i]=="###/###"){
-    break
-  }
-  row1<-strsplit(res1[i],"/")
-  test_data<-rbind(test_data,data.frame(Word=row1[[1]][1],POS=row1[[1]][2]))
-  print(res1[i])
-}
-test_data<-na.omit(test_data)
 
 #Implementing Viterbi in Test Set
 start<-1
